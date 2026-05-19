@@ -148,3 +148,4 @@ A névnapok megjelenítése a WEB-es felületen kikapcsolható options/ SYSTEM->
 ### Ha támogatni szeretnéd a munkámat itt meghívhatsz egy kávéra!!!     
 https://buymeacoffee.com/vtom
 
+Fork maintained by @gidano.
