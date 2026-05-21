@@ -1,4 +1,4 @@
-﻿#include "Arduino.h"
+#include "Arduino.h"
 #include "options.h"
 #include "WiFi.h"
 #include "time.h"
