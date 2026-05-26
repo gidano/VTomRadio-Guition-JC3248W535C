@@ -20,9 +20,12 @@
 
 #elif DSP_MODEL==DSP_ILI9488 || DSP_MODEL==DSP_ILI9486
    #include "displayILI9488.h"
+
+#elif DSP_MODEL==DSP_AXS15231B
+  #include "displayAXS15231B.h"
+
 #elif DSP_MODEL==DSP_SSD1322        
   #define TIME_SIZE           35
   #define DSP_OLED
   #include "displaySSD1322.h"
 #endif
-
