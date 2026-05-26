@@ -19,13 +19,13 @@
 #define bootLogoTop 55
 
 /* SROLLS  */                            /* {{ left, top, fontsize, align }, buffsize, uppercase, width, scrolldelay, scrolldelta, scrolltime } */
-const ScrollConfig metaConf       PROGMEM = {{ TFT_FRAMEWDT, 0, 36, WA_CENTER }, 140, true, MAX_WIDTH, 5000, 3, 40 };
-const ScrollConfig title1Conf     PROGMEM = {{TFT_FRAMEWDT, 55, 20, WA_CENTER}, 140, true, MAX_WIDTH, 5000, 4, 40};
-const ScrollConfig title2Conf     PROGMEM = {{TFT_FRAMEWDT, 81, 20, WA_CENTER}, 140, true, MAX_WIDTH, 5000, 4, 40};
+const ScrollConfig metaConf       PROGMEM = {{ TFT_FRAMEWDT, 6, 26, WA_CENTER }, 140, true, MAX_WIDTH, 5000, 4, 40 };
+const ScrollConfig title1Conf     PROGMEM = {{TFT_FRAMEWDT, 51, 24, WA_CENTER}, 140, true, MAX_WIDTH, 5000, 4, 40};
+const ScrollConfig title2Conf     PROGMEM = {{TFT_FRAMEWDT, 81, 24, WA_CENTER}, 140, true, MAX_WIDTH, 5000, 4, 40};
 const ScrollConfig playlistConf   PROGMEM = {{ TFT_FRAMEWDT, 146, 24, WA_LEFT }, 140, true, MAX_WIDTH, 1000, 7, 40 };
 const ScrollConfig apTitleConf    PROGMEM = {{ TFT_FRAMEWDT, TFT_FRAMEWDT, 4, WA_CENTER }, 140, false, MAX_WIDTH, 0, 7, 40 };
 const ScrollConfig apSettConf     PROGMEM = {{ TFT_FRAMEWDT, 320-TFT_FRAMEWDT-16, 2, WA_LEFT }, 140, false, MAX_WIDTH, 0, 5, 40 };
-const ScrollConfig weatherConf    PROGMEM = {{ TFT_FRAMEWDT, 107, 20, WA_CENTER }, 140, false, MAX_WIDTH, 5000, 4, 40 };
+const ScrollConfig weatherConf    PROGMEM = {{ TFT_FRAMEWDT, 113, 20, WA_CENTER }, 140, false, MAX_WIDTH, 5000, 4, 40 };
 
 /* BACKGROUNDS  */                       /* {{ left, top, fontsize, align }, width, height, outlined } */
 const FillConfig   metaBGConf     PROGMEM = {{TFT_FRAMEWDT, 45, 0, WA_CENTER}, DSP_WIDTH - TFT_FRAMEWDT*2, 1, true}; // Csík rajzolása a rádióadó neve alá.
@@ -67,7 +67,7 @@ const BitrateBoxConfig bitrateConf PROGMEM = {10, 145, 20, WA_CENTER, 1, 4, true
 
 /* left, top, textsize, width, onebandwidth (width), onebandheight (height), bandsHspace (space), bandsVspace (vspace), numofbands (perheight), fadespeed, labelwidth, labelheight} */
 #define VU_HAS_DUAL_CONF 1
-const VU_WidgetConfig vuConf PROGMEM = {37, 258, 9, 300, 7, 6, 2, 30, 11, 22, 12};              // ALAP VU: két VU egymás alatt
+const VU_WidgetConfig vuConf PROGMEM = {37, 258, 9, 200, 7, 6, 2, 20, 9, 22, 12};              // ALAP VU: két VU egymás alatt
 const VU_WidgetConfig vuConfBidirectional PROGMEM = {35, 265, 9, 200, 7, 6, 2, 20, 9, 22, 12}; // BOOMBOX_STYLE: két VU egymás mellett
 
 /* STRINGS  */
