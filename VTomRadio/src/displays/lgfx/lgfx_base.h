@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef LGFX_USE_QSPI
+#define LGFX_USE_QSPI
+#endif
+
 #include <LovyanGFX.hpp>
 
 #include "../../core/options.h"
@@ -35,10 +39,22 @@ class LGFX_Base : public lgfx::LGFX_Device {
   void configureBus() {
     auto cfg = _bus.config();
     applySpiHost(cfg);
+#if DSP_MODEL == DSP_AXS15231B
+    cfg.pin_sclk = TFT_SCK;
+    cfg.pin_mosi = -1;
+    cfg.pin_miso = -1;
+    cfg.pin_dc = -1;
+    cfg.pin_io0 = TFT_D0;
+    cfg.pin_io1 = TFT_D1;
+    cfg.pin_io2 = TFT_D2;
+    cfg.pin_io3 = TFT_D3;
+    cfg.spi_3wire = false;
+#else
     cfg.pin_sclk = 12;
     cfg.pin_mosi = 11;
     cfg.pin_miso = 13;
     cfg.pin_dc = TFT_DC;
+#endif
     cfg.freq_write = 40000000;
     cfg.freq_read = 16000000;
     _bus.config(cfg);
@@ -53,6 +69,11 @@ class LGFX_Base : public lgfx::LGFX_Device {
     cfg.panel_height = _panelHeight;
     cfg.offset_rotation = _rotationOffset;
     cfg.invert = true;
+#if DSP_MODEL == DSP_AXS15231B
+    cfg.memory_width = _panelWidth;
+    cfg.memory_height = _panelHeight;
+    cfg.invert = false;
+#endif
     _panel.config(cfg);
   }
 

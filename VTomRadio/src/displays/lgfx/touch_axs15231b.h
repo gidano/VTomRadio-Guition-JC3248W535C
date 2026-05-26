@@ -9,13 +9,15 @@ inline namespace v1 {
 
 struct Touch_AXS15231B : public ITouch {
     static constexpr uint8_t i2c_addr = 0x3B;
+    static constexpr uint16_t raw_x_max = 319;
+    static constexpr uint16_t raw_y_max = 479;
 
     Touch_AXS15231B(void) {
         _cfg.i2c_addr = i2c_addr;
         _cfg.x_min = 0;
-        _cfg.x_max = 319;
+        _cfg.x_max = raw_x_max;
         _cfg.y_min = 0;
-        _cfg.y_max = 479;
+        _cfg.y_max = raw_y_max;
         _cfg.freq = 400000;
         _cfg.pin_int = -1;
         _cfg.pin_rst = -1;
@@ -99,13 +101,13 @@ struct Touch_AXS15231B : public ITouch {
         uint16_t raw_x = static_cast<uint16_t>(((p[0] & 0x0F) << 8) | p[1]);
         uint16_t raw_y = static_cast<uint16_t>(((p[2] & 0x0F) << 8) | p[3]);
 
-        if (raw_x > _cfg.x_max || raw_y > _cfg.y_max) {
+        if (raw_x > raw_x_max || raw_y > raw_y_max) {
             return 0;
         }
 
         tp[0].id = 0;
-        tp[0].x = raw_x;
-        tp[0].y = raw_y;
+        tp[0].x = raw_y_max - raw_y;
+        tp[0].y = raw_x;
         tp[0].size = p[4];
 
         return 1;
