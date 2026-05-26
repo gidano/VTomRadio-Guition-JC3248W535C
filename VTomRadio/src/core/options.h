@@ -57,6 +57,7 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #define DSP_2002        26    // 20x2           https://aliexpress.com/item/32812259852.html
 #define DSP_2002I2C     27    // 20x2           https://aliexpress.com/item/32812259852.html
 #define DSP_ST7789_170  28    // 320x170  1.9'  https://aliexpress.com/item/1005008723378017.html
+#define DSP_AXS15231B   29    // 480x320 JC3248W535 AXS15231B QSPI
 
 #define TS_MODEL_UNDEFINED      0
 #define TS_MODEL_XPT2046        1
@@ -81,6 +82,8 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #ifndef DEFAULT_SCREEN_ROTATION
   #if DSP_MODEL == DSP_ST7796
     #define DEFAULT_SCREEN_ROTATION 3
+  #elif DSP_MODEL == DSP_AXS15231B
+    #define DEFAULT_SCREEN_ROTATION 0
   #elif DSP_MODEL == DSP_ILI9488
     #define DEFAULT_SCREEN_ROTATION 1
   #else
