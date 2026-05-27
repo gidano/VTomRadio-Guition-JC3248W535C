@@ -17,5 +17,25 @@
 ![PCB front](2D_pcb_top_98x100mm.jpg)<br><br>
 ![PCB back](2D_pcb_bottom_98x100mm.jpg)<br><br>
 
+## Alkatrészek:
+| Alkatrész neve    | Érték | Típus    |
+|-------------------|-------|----------|     
+| R1 - R4           | 4,7k  | SMD 1206 |    
+| R5 - R6           | 1k    | SMD 1206 |
+| R7 - R13          | 10k   | SMD 1206 |
+| R14 - R15         | 4,7k  | SMD 1206 |
+| R16               | 330   | SMD 1206 |
+| R17               | 47k   | SMD 1206 |
+| R18               | 680   | SMD 1206 |
+| R19               | 47k   | SMD 1206 |
+| C1                | 220uF/10V | |
+| C2                | Kondenzátor 100nF 100V 10% Polipropilén RM-5
+| C3                | 10uF/10V | |
+| C4                | Kondenzátor 100nF 100V 10% Polipropilén RM-5 |
+| LD1117AS33TR POS.V-REG. | 3.3V 1.2A Low-Drop.(1.15V) | SOT-223       | 
+| AO3401A | P-MOSFET SMD 30V (3.8A) | SOT-23 |
+| BC817-40.215 NPN SMD 45V/50V 0.5A 0.25W 100MHz | | SOT-23 |
+| LTV817STA1 | Optocsatoló 5kV tranzisztor kimenet 35V 50mA 80KHz 4p. SMD 
+| Csatlakozók| JST-XH | 2,54 |
 ### Ha támogatni szeretnéd a munkámat itt meghívhatsz egy kávéra!!!     
 https://buymeacoffee.com/vtom
