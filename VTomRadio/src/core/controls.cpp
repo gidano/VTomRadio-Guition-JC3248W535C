@@ -19,6 +19,19 @@ int  lpId = -1;
 uint32_t wakeCheckUntil = 0;
 bool     waitingForWakeIr = false;
 
+#if IR_PIN != 255
+static uint32_t s_lastIrStationSwitchMs = 0;
+
+static inline bool irAllowPlayerStationSwitch() {
+    const uint32_t now = millis();
+    if ((uint32_t)(now - s_lastIrStationSwitchMs) < 120UL) {
+        return false;
+    }
+    s_lastIrStationSwitchMs = now;
+    return true;
+}
+#endif
+
 static inline void registerUserActivity() {
     config.screensaverTicks = 0;
     config.screensaverPlayingTicks = 0;
@@ -459,6 +472,7 @@ void irLoop() {
                                 controlsEvent(true);
                                 break;
                             } else {
+                                if (display.mode() == PLAYER && !irAllowPlayerStationSwitch()) { break; }
                                 player.prev();
                             }
                             break;
@@ -468,6 +482,7 @@ void irLoop() {
                                 controlsEvent(false);
                                 break;
                             } else {
+                                if (display.mode() == PLAYER && !irAllowPlayerStationSwitch()) { break; }
                                 player.next();
                             }
                             break;

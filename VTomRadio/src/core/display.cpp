@@ -38,6 +38,10 @@ Nextion nextion;
 #    define DSP_TASK_DELAY pdMS_TO_TICKS(30) // cap for 50 fps
 #endif
 
+#ifndef DISPLAY_QUEUE_LENGTH
+#    define DISPLAY_QUEUE_LENGTH 20
+#endif
+
 #define DSP_QUEUE_TICKS 0
 
 #ifndef DSQ_SEND_DELAY
@@ -48,7 +52,7 @@ QueueHandle_t displayQueue;
 
 static void purgeQueuedRequestType(displayRequestType_e type) {
     if (displayQueue == NULL) { return; }
-    requestParams_t keep[8];
+    requestParams_t keep[DISPLAY_QUEUE_LENGTH];
     size_t          keepCount = 0;
     requestParams_t item;
     while (xQueueReceive(displayQueue, &item, 0) == pdTRUE) {
@@ -140,7 +144,7 @@ void Display::init() {
     }
 
     // --- QUEUE ---
-    displayQueue = xQueueCreate(20, sizeof(requestParams_t)); // Increased from 5 to 20 for better handling of rapid channel switches
+    displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, sizeof(requestParams_t)); // Increased from 5 to 20 for better handling of rapid channel switches
     while (displayQueue == NULL) { delay(1); }
     _pager = new Pager();
     _footer = new Page();
@@ -490,6 +494,21 @@ void Display::_drawNextStationNum(uint16_t num) {
 
 void Display::putRequest(displayRequestType_e type, int payload) {
     if (displayQueue == NULL) { return; }
+    switch (type) {
+        case DRAWPLAYLIST:
+        case NEWTITLE:
+        case NEWSTATION:
+        case DBITRATE:
+        case PSTART:
+        case PSTOP:
+        case AUDIOINFO:
+        case DSPRSSI:
+        case DRAWVOL:
+            purgeQueuedRequestType(type);
+            break;
+        default:
+            break;
+    }
     requestParams_t request;
     request.type = type;
     request.payload = payload;
