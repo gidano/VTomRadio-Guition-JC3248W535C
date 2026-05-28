@@ -32,22 +32,11 @@ kijelzőhöz készült és csak az audioI2S DAC eszközzel működik megfelelőe
 - A program működéséhez 16MB flash memória és 8MB PSRAM szükséges!
 - Arduino Core 3.3.7 használatával tesztelve. Arduino Core 3.3.8 verzióval nem működik megfelelően !!!   
 
-A programhoz ajánlott a Visual Studio Code szerkesztő használata a PlatformIO plugin-nal, de az Arduino IDE-vel is működik. 
-
-PlatformIO esetén a mellékelt platformio.ini fájlban meg vannak adva a szükséges könyvtárak és beállítások, így csak az alábbi parancsokat kell kiadni. 
+A programhoz ajánlott az Arduino IDE használata. 
+ 
 - Első telepítés előtt célszerű a teljes flash memória törlése az előző verziók maradványainak eltávolítása érdekében!
-```
-pio run --target erase
-```
-- Ezután a következő parancsot kell kiadni a kód feltöltéséhez. A parancs automatikusan létrehozza a szükséges particiókat a gyökérkönyvtárban elhelyezett partitions.csv fájl alapján a 16 MB-os flash memória méretéhez igazítva és feltölti a firmware-t.
-```
-pio run --target upload
-```
-- Ezután a WEB UI elemeit, fontokat, képeket kell feltölteni a következő paranccsal.
-```
-pio run --target uploadfs
-```
-- Ezek a fájlok könyvtárankén elkülönítve itt találhatóak, ezekkel teendő nincs.
+- A helyes működéshez az alábbi helyen található fájlokat indítás után a webfelületen a Board menü alatt fel kell tölteni a LittleFS-partícióra!
+- Erre használható a főkönyvtárban található LittleFs-SPIFFS Partition Manager alkalmazásom is, USB csatlakozáson a soros porton keresztül.
 ```
         VTomRadio/data/data     Lejátszási lista, jelszó
         VTomRadio/data/www      WEB UI fájlok
