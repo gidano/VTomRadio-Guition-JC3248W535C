@@ -13,12 +13,20 @@
 #define AXS_FLUSH_TASK_DELAY_MS 1
 #endif
 
+#ifndef AXS_SMOOTH_SCROLL
+#define AXS_SMOOTH_SCROLL 1
+#endif
+
 // Very light driver-side coalescing: wait only one RTOS tick so that
 // multiple sprite pushes from the same UI loop can collapse into one
 // physical full-frame flush. No fixed 60 Hz pacing here, because that made
 // scrolling visibly slow on JC3248W535C.
 #ifndef AXS_FLUSH_COALESCE_MS
+#if AXS_SMOOTH_SCROLL
+#define AXS_FLUSH_COALESCE_MS 1
+#else
 #define AXS_FLUSH_COALESCE_MS 5
+#endif
 #endif
 
 #ifndef AXS_SCAN_BUILD_YIELD_COLS
@@ -30,15 +38,27 @@
 #endif
 
 #ifndef AXS_FLUSH_TASK_CORE
+#if AXS_SMOOTH_SCROLL
+#define AXS_FLUSH_TASK_CORE 0
+#else
 #define AXS_FLUSH_TASK_CORE 1
+#endif
 #endif
 
 #ifndef AXS_FLUSH_CHUNK_DELAY_EVERY
+#if AXS_SMOOTH_SCROLL
+#define AXS_FLUSH_CHUNK_DELAY_EVERY 0
+#else
 #define AXS_FLUSH_CHUNK_DELAY_EVERY 2
+#endif
 #endif
 
 #ifndef AXS_FLUSH_CHUNK_DELAY_MS
+#if AXS_SMOOTH_SCROLL
+#define AXS_FLUSH_CHUNK_DELAY_MS 0
+#else
 #define AXS_FLUSH_CHUNK_DELAY_MS 1
+#endif
 #endif
 
 #ifndef AXS_STABLE_BOOT_FLUSHES
@@ -51,6 +71,14 @@
 
 #ifndef AXS_ENABLE_SCAN_FLUSH
 #define AXS_ENABLE_SCAN_FLUSH 0
+#endif
+
+#ifndef AXS_FLUSH_DIAG
+#define AXS_FLUSH_DIAG 0
+#endif
+
+#ifndef AXS_FLUSH_DIAG_INTERVAL_MS
+#define AXS_FLUSH_DIAG_INTERVAL_MS 1000UL
 #endif
 
 namespace lgfx {
@@ -143,6 +171,9 @@ struct Panel_AXS15231B : public Panel_FrameBufferBase {
         (void)y;
         (void)w;
         (void)h;
+#if AXS_FLUSH_DIAG
+        const uint32_t diagStartUs = micros();
+#endif
 
         if (_framebuffer == nullptr || _flushLine == nullptr || _range_mod.empty()) {
             return;
@@ -172,6 +203,7 @@ struct Panel_AXS15231B : public Panel_FrameBufferBase {
             sendScanBuffer();
         }
 
+        const bool hadDirtyDuring = _dirtyDuringFlush;
         if (_dirtyDuringFlush) {
             markFullDirty();
             _flushRequested = true;
@@ -186,6 +218,36 @@ struct Panel_AXS15231B : public Panel_FrameBufferBase {
             _inBusTransaction = false;
         }
         unlockBus();
+#if AXS_FLUSH_DIAG
+        const uint32_t nowMs = millis();
+        const uint32_t flushUs = micros() - diagStartUs;
+        if (_diagFlushWindowMs == 0) {
+            _diagFlushWindowMs = nowMs;
+        }
+        _diagFlushSamples++;
+        _diagFlushSumUs += flushUs;
+        if (flushUs > _diagFlushMaxUs) _diagFlushMaxUs = flushUs;
+        if (hadDirtyDuring) _diagFlushDirtyDuring++;
+        if (nowMs - _diagFlushWindowMs >= AXS_FLUSH_DIAG_INTERVAL_MS) {
+            Serial.printf(
+                "AXS_FLUSH core=%d samples=%lu avg_us=%lu max_us=%lu dirty_during=%lu req=%u stable=%u free_heap=%u psram=%u\n",
+                xPortGetCoreID(),
+                (unsigned long)_diagFlushSamples,
+                (unsigned long)(_diagFlushSamples ? _diagFlushSumUs / _diagFlushSamples : 0),
+                (unsigned long)_diagFlushMaxUs,
+                (unsigned long)_diagFlushDirtyDuring,
+                _flushRequested ? 1 : 0,
+                _stableBootFlushes,
+                (unsigned)ESP.getFreeHeap(),
+                (unsigned)ESP.getFreePsram()
+            );
+            _diagFlushWindowMs = nowMs;
+            _diagFlushSamples = 0;
+            _diagFlushSumUs = 0;
+            _diagFlushMaxUs = 0;
+            _diagFlushDirtyDuring = 0;
+        }
+#endif
     }
 
     void setInvert(bool invert) override {
@@ -214,7 +276,127 @@ struct Panel_AXS15231B : public Panel_FrameBufferBase {
         }
     }
 
+    bool isFlushBusy() const {
+        return _flushInProgress;
+    }
+
+    bool isFrameBusy() const {
+        if (!_frameMutex) {
+            return false;
+        }
+        if (xSemaphoreTakeRecursive(_frameMutex, 0) == pdTRUE) {
+            xSemaphoreGiveRecursive(_frameMutex);
+            return false;
+        }
+        return true;
+    }
+
+    bool tryBeginFrameAccess() {
+        if (!_frameMutex) {
+            return true;
+        }
+        return xSemaphoreTakeRecursive(_frameMutex, 0) == pdTRUE;
+    }
+
+    void endFrameAccess() {
+        if (_frameMutex) {
+            xSemaphoreGiveRecursive(_frameMutex);
+        }
+    }
+
+    bool blitFrameBlock(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* pixels) {
+        return blitFrameBlockImpl(x, y, w, h, pixels, true);
+    }
+
+    bool blitFrameBlockDeferred(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* pixels) {
+        return blitFrameBlockImpl(x, y, w, h, pixels, false);
+    }
+
+    bool fillFrameBlockDeferred(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color) {
+        return fillFrameBlockImpl(x, y, w, h, color, false);
+    }
+
 private:
+    bool fillFrameBlockImpl(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color, bool requestDisplayFlush) {
+        if (!_framebuffer || !_lineTable || w <= 0 || h <= 0) {
+            return false;
+        }
+
+        if (x < 0) {
+            w += x;
+            x = 0;
+        }
+        if (y < 0) {
+            h += y;
+            y = 0;
+        }
+        if (x + w > _cfg.memory_width) {
+            w = _cfg.memory_width - x;
+        }
+        if (y + h > _cfg.memory_height) {
+            h = _cfg.memory_height - y;
+        }
+        if (w <= 0 || h <= 0) {
+            return false;
+        }
+
+        lockFrame();
+        for (int32_t row = 0; row < h; ++row) {
+            uint16_t* dst = reinterpret_cast<uint16_t*>(_lineTable[y + row] + (x * sizeof(uint16_t)));
+            for (int32_t col = 0; col < w; ++col) {
+                dst[col] = color;
+            }
+        }
+        markFullDirty();
+        if (requestDisplayFlush) {
+            requestFlush();
+        }
+        unlockFrame();
+        return true;
+    }
+
+    bool blitFrameBlockImpl(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* pixels, bool requestDisplayFlush) {
+        if (!_framebuffer || !_lineTable || !pixels || w <= 0 || h <= 0) {
+            return false;
+        }
+
+        const int32_t srcStride = w;
+        int32_t srcX = 0;
+        int32_t srcY = 0;
+        if (x < 0) {
+            srcX = -x;
+            w += x;
+            x = 0;
+        }
+        if (y < 0) {
+            srcY = -y;
+            h += y;
+            y = 0;
+        }
+        if (x + w > _cfg.memory_width) {
+            w = _cfg.memory_width - x;
+        }
+        if (y + h > _cfg.memory_height) {
+            h = _cfg.memory_height - y;
+        }
+        if (w <= 0 || h <= 0) {
+            return false;
+        }
+
+        lockFrame();
+        for (int32_t row = 0; row < h; ++row) {
+            const uint16_t* src = pixels + static_cast<size_t>(srcY + row) * static_cast<size_t>(srcStride) + srcX;
+            uint8_t* dst = _lineTable[y + row] + (x * sizeof(uint16_t));
+            memcpy(dst, src, static_cast<size_t>(w) * sizeof(uint16_t));
+        }
+        markFullDirty();
+        if (requestDisplayFlush) {
+            requestFlush();
+        }
+        unlockFrame();
+        return true;
+    }
+
     static constexpr uint16_t FLUSH_PIXELS = 12800;
     uint8_t** _lineTable = nullptr;
     uint8_t* _framebuffer = nullptr;
@@ -234,6 +416,13 @@ private:
     TaskHandle_t _flushTaskHandle = nullptr;
     SemaphoreHandle_t _busMutex = nullptr;
     SemaphoreHandle_t _frameMutex = nullptr;
+#if AXS_FLUSH_DIAG
+    uint32_t _diagFlushWindowMs = 0;
+    uint32_t _diagFlushSamples = 0;
+    uint32_t _diagFlushSumUs = 0;
+    uint32_t _diagFlushMaxUs = 0;
+    uint32_t _diagFlushDirtyDuring = 0;
+#endif
 
     bool allocateFrameBuffer() {
         if (_framebuffer) {
@@ -243,20 +432,30 @@ private:
         const size_t lineBytes = _cfg.memory_width * sizeof(uint16_t);
         _bufferBytes = lineBytes * _cfg.memory_height;
         _framebuffer = static_cast<uint8_t*>(heap_caps_aligned_alloc(16, _bufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+#if AXS_ENABLE_SCAN_FLUSH
         _scanBuffer = static_cast<uint16_t*>(heap_caps_aligned_alloc(16, _bufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+#endif
         _lineTable = static_cast<uint8_t**>(heap_caps_calloc(_cfg.memory_height, sizeof(uint8_t*), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
         _flushLine = static_cast<uint16_t*>(heap_caps_aligned_alloc(16, FLUSH_PIXELS * sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
 
-        if (!_framebuffer || !_scanBuffer || !_lineTable || !_flushLine) {
+        if (!_framebuffer || !_lineTable || !_flushLine) {
             freeFrameBuffer();
             return false;
         }
+#if AXS_ENABLE_SCAN_FLUSH
+        if (!_scanBuffer) {
+            freeFrameBuffer();
+            return false;
+        }
+#endif
 
         for (uint_fast16_t y = 0; y < _cfg.memory_height; ++y) {
             _lineTable[y] = _framebuffer + (y * lineBytes);
         }
         _lines_buffer = _lineTable;
+#if AXS_ENABLE_SCAN_FLUSH
         memset(_scanBuffer, 0, _bufferBytes);
+#endif
         return true;
     }
 
@@ -304,13 +503,9 @@ private:
         if (_range_mod.empty()) {
             return true;
         }
-
-        const uint16_t left = _range_mod.left;
-        const uint16_t right = _range_mod.right >= _cfg.memory_width ? _cfg.memory_width - 1 : _range_mod.right;
-        const uint16_t top = _range_mod.top;
-        const uint16_t bottom = _range_mod.bottom >= _cfg.memory_height ? _cfg.memory_height - 1 : _range_mod.bottom;
-        const uint32_t dirtyPixels = static_cast<uint32_t>(right - left + 1) * static_cast<uint32_t>(bottom - top + 1);
-        return dirtyPixels > AXS_SCAN_SMALL_DIRTY_PIXELS;
+        const uint32_t dirtyHeight = static_cast<uint32_t>(_range_mod.bottom - _range_mod.top + 1);
+        const uint32_t dirtyWidth = static_cast<uint32_t>(_range_mod.right - _range_mod.left + 1);
+        return (dirtyWidth * dirtyHeight) > AXS_SCAN_SMALL_DIRTY_PIXELS;
     }
 
     void sendFrameDirect() {
@@ -356,7 +551,7 @@ private:
                 memcpy(&raw, &_lines_buffer[y][sx * sizeof(uint16_t)], sizeof(raw));
                 out[y] = raw;
             }
-            if ((x % AXS_SCAN_BUILD_YIELD_COLS) == 0) {
+            if (AXS_SCAN_BUILD_YIELD_COLS && (x % AXS_SCAN_BUILD_YIELD_COLS) == 0) {
                 taskYIELD();
             }
         }
@@ -390,16 +585,22 @@ private:
         cs_control(true);
     }
 
+    void scheduleFlush() {
+        const TickType_t due = xTaskGetTickCount() + pdMS_TO_TICKS(AXS_FLUSH_COALESCE_MS);
+        if (!_flushRequested || _flushDueTick == 0 || due < _flushDueTick) {
+            _flushDueTick = due;
+        }
+        _flushRequested = true;
+    }
+
     void requestFlush() {
         if (_flushInProgress) {
             _dirtyDuringFlush = true;
-            _flushRequested = true;
-            _flushDueTick = xTaskGetTickCount() + pdMS_TO_TICKS(AXS_FLUSH_COALESCE_MS);
+            scheduleFlush();
             return;
         }
         if (!_range_mod.empty()) {
-            _flushRequested = true;
-            _flushDueTick = xTaskGetTickCount() + pdMS_TO_TICKS(AXS_FLUSH_COALESCE_MS);
+            scheduleFlush();
         }
     }
 

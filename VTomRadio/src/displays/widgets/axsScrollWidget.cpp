@@ -7,11 +7,36 @@
 #include "../display_select.h"
 #include "axsScrollWidget.h"
 
+#ifndef AXS_SMOOTH_SCROLL
+#define AXS_SMOOTH_SCROLL 1
+#endif
+
+#ifndef AXS_SCROLL_SINGLE_OWNER
+#define AXS_SCROLL_SINGLE_OWNER AXS_SMOOTH_SCROLL
+#endif
+
+#ifndef AXS_SCROLL_MIN_STEP_MS
+#define AXS_SCROLL_MIN_STEP_MS 50
+#endif
+
+#ifndef AXS_SCROLL_MAX_DELTA_PX
+#define AXS_SCROLL_MAX_DELTA_PX 1
+#endif
+
+#if AXS_SCROLL_SINGLE_OWNER
+static AXSScrollWidget* axsScrollOwner = nullptr;
+#endif
+
 AXSScrollWidget::AXSScrollWidget(const char* separator, ScrollConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
     init(separator, conf, fgcolor, bgcolor);
 }
 
 AXSScrollWidget::~AXSScrollWidget() {
+#if AXS_SCROLL_SINGLE_OWNER
+    if (axsScrollOwner == this) {
+        axsScrollOwner = nullptr;
+    }
+#endif
     _deleteStrip();
     if (_spr) {
         _spr->deleteSprite();
@@ -30,10 +55,19 @@ void AXSScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fg
     _scrolldelta = conf.scrolldelta;
     _scrolltime = conf.scrolltime;
 
+#if AXS_SMOOTH_SCROLL
+    if (_scrolltime < AXS_SCROLL_MIN_STEP_MS) {
+        _scrolltime = AXS_SCROLL_MIN_STEP_MS;
+    }
+    if (_scrolldelta > AXS_SCROLL_MAX_DELTA_PX) {
+        _scrolldelta = AXS_SCROLL_MAX_DELTA_PX;
+    }
+#else
     if (_scrolltime > 30 && _scrolldelta > 1) {
         _scrolldelta = (_scrolldelta + 1) / 2;
         _scrolltime = (_scrolltime + 1) / 2;
     }
+#endif
     _width = conf.width;
 
     _spr = new LGFX_Sprite(&dsp);
@@ -186,26 +220,54 @@ void AXSScrollWidget::setText(const char* txt, const char* format) {
 }
 
 void AXSScrollWidget::loop() {
-    if (_locked || !_active || !_doscroll) return;
+    if (_locked || !_active || !_doscroll) {
+#if AXS_SCROLL_SINGLE_OWNER
+        if (axsScrollOwner == this) {
+            axsScrollOwner = nullptr;
+        }
+#endif
+        return;
+    }
 
     uint32_t now = millis();
     if (_scrollState == SCROLL_WAIT_START) {
         if (now - _scrolldelay >= _startscrolldelay) {
+#if AXS_SCROLL_SINGLE_OWNER
+            if (axsScrollOwner && axsScrollOwner != this) {
+                return;
+            }
+            axsScrollOwner = this;
+#endif
             _scrollState = SCROLL_RUN;
             _lastStep = now;
         }
         return;
     }
 
+#if AXS_SCROLL_SINGLE_OWNER
+    if (axsScrollOwner && axsScrollOwner != this) {
+        return;
+    }
+    axsScrollOwner = this;
+#endif
+
     if (now - _lastStep >= _scrolltime) {
         _scrollOffset += _scrolldelta;
         if (_scrollOffset >= _fullWidth) {
             _reset();
             _drawStatic();
+#if AXS_SCROLL_SINGLE_OWNER
+            if (axsScrollOwner == this) {
+                axsScrollOwner = nullptr;
+            }
+#endif
             return;
         }
 
-        _lastStep = now;
+        _lastStep += _scrolltime;
+        if (now - _lastStep >= _scrolltime) {
+            _lastStep = now;
+        }
         _draw();
     }
 }
@@ -284,6 +346,11 @@ void AXSScrollWidget::_draw() {
 }
 
 void AXSScrollWidget::_reset() {
+#if AXS_SCROLL_SINGLE_OWNER
+    if (axsScrollOwner == this) {
+        axsScrollOwner = nullptr;
+    }
+#endif
     _scrolldelay = millis();
     _lastStep = _scrolldelay;
     _scrollOffset = 0;

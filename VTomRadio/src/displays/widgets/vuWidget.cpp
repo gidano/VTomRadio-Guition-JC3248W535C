@@ -149,6 +149,13 @@ void VuWidget::_draw() {
 
     uint16_t maxVU = max(vuLeft, vuRight);
     if (maxVU > config.vuRefLevel) { config.vuRefLevel = maxVU; }
+#if DSP_MODEL == DSP_AXS15231B
+    static uint32_t lastRefDecayMs = 0;
+    if (config.vuRefLevel > 50 && maxVU + 2 < config.vuRefLevel && now - lastRefDecayMs >= 200) {
+        config.vuRefLevel--;
+        lastRefDecayMs = now;
+    }
+#endif
     if (config.vuRefLevel < 50) { config.vuRefLevel = 50; }
 
     uint16_t vuLpx = map(vuLeft, 0, config.vuRefLevel, 0, _vuConf.width);

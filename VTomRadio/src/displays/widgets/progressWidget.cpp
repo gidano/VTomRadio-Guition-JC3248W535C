@@ -1,6 +1,5 @@
 #include "progressWidget.h"
 
-
 void ProgressWidget::_progress() {
     char buf[_width + 1];
     snprintf(buf, _width, "%*s%.*s%*s", _pg <= _barwidth ? 0 : _pg - _barwidth, "", _pg <= _barwidth ? _pg : 5, ".....", _width - _pg, "");

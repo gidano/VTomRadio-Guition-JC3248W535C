@@ -3,15 +3,53 @@
 #include "widgets.h"
 #include "../../core/fonts.h"
 
+#if DSP_MODEL == DSP_AXS15231B
+static ScrollWidget* scrollOwner = nullptr;
+
+void ScrollWidget::releaseScrollOwner() {
+    scrollOwner = nullptr;
+}
+
+#ifndef AXS_SCROLL_MIN_STEP_MS
+#define AXS_SCROLL_MIN_STEP_MS 50
+#endif
+#ifndef AXS_SCROLL_MAX_STEP_MS
+#define AXS_SCROLL_MAX_STEP_MS 52
+#endif
+#ifndef AXS_SCROLL_MAX_DELTA_PX
+#define AXS_SCROLL_MAX_DELTA_PX 2
+#endif
+#ifndef AXS_SCROLL_DIAG
+#define AXS_SCROLL_DIAG 0
+#endif
+#ifndef AXS_SCROLL_DIAG_TOP
+#define AXS_SCROLL_DIAG_TOP 113
+#endif
+#ifndef AXS_SCROLL_DIAG_INTERVAL_MS
+#define AXS_SCROLL_DIAG_INTERVAL_MS 1000UL
+#endif
+#ifndef AXS_SCROLL_DIRECT_BLIT_AFTER_MS
+#define AXS_SCROLL_DIRECT_BLIT_AFTER_MS 8000UL
+#endif
+#endif
+
 ScrollWidget::ScrollWidget(const char* separator, ScrollConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
     init(separator, conf, fgcolor, bgcolor);
 }
 
 ScrollWidget::~ScrollWidget() {
+#if DSP_MODEL == DSP_AXS15231B
+    if (scrollOwner == this) {
+        scrollOwner = nullptr;
+    }
+#endif
     if (_spr) {
         _spr->deleteSprite();
         delete _spr;
     }
+#if DSP_MODEL == DSP_AXS15231B
+    _deleteStrip();
+#endif
     if (_sep) free(_sep);
 }
 
@@ -25,6 +63,17 @@ void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcol
     _startscrolldelay = conf.startscrolldelay;
     _scrolldelta = conf.scrolldelta;
     _scrolltime = conf.scrolltime;
+#if DSP_MODEL == DSP_AXS15231B
+    if (_scrolltime < AXS_SCROLL_MIN_STEP_MS) {
+        _scrolltime = AXS_SCROLL_MIN_STEP_MS;
+    }
+    if (_scrolltime > AXS_SCROLL_MAX_STEP_MS) {
+        _scrolltime = AXS_SCROLL_MAX_STEP_MS;
+    }
+    if (_scrolldelta > AXS_SCROLL_MAX_DELTA_PX) {
+        _scrolldelta = AXS_SCROLL_MAX_DELTA_PX;
+    }
+#endif
     _width = conf.width;
 
     _spr = new LGFX_Sprite(&dsp);
@@ -49,34 +98,78 @@ void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcol
 }
 
 void ScrollWidget::_setTextParams() {
-    if (!_spr || _config.textsize == 0) return;
-    _spr->setTextColor(_fgcolor, _bgcolor);
-    _spr->setTextWrap(false);
-    _spr->unloadFont();
+    _setTextParams(_spr);
+}
+
+void ScrollWidget::_setTextParams(LGFX_Sprite* sprite) {
+    if (!sprite || _config.textsize == 0) return;
+    sprite->setTextColor(_fgcolor, _bgcolor);
+    sprite->setTextWrap(false);
+    sprite->unloadFont();
     if (_config.textsize == 20 && font_vlw_20) {
-        _spr->loadFont(font_vlw_20);
-        _spr->setTextSize(1);
+        sprite->loadFont(font_vlw_20);
+        sprite->setTextSize(1);
 
     } else if (_config.textsize == 22 && font_vlw_22) {
-        _spr->loadFont(font_vlw_22);
-        _spr->setTextSize(1);
+        sprite->loadFont(font_vlw_22);
+        sprite->setTextSize(1);
 
     } else if (_config.textsize == 24 && font_vlw_24) {
-        _spr->loadFont(font_vlw_24);
-        _spr->setTextSize(1);
+        sprite->loadFont(font_vlw_24);
+        sprite->setTextSize(1);
     } else if (_config.textsize == 26 && font_vlw_26) {
-        _spr->loadFont(font_vlw_26);
-        _spr->setTextSize(1);
+        sprite->loadFont(font_vlw_26);
+        sprite->setTextSize(1);
 
     } else if (_config.textsize == 36 && font_vlw_36) {
-        _spr->loadFont(font_vlw_36);
-        _spr->setTextSize(1);
+        sprite->loadFont(font_vlw_36);
+        sprite->setTextSize(1);
 
     } else {
-        _spr->setFont(nullptr);
-        _spr->setTextSize(2);
+        sprite->setFont(nullptr);
+        sprite->setTextSize(2);
     }
 }
+
+#if DSP_MODEL == DSP_AXS15231B
+void ScrollWidget::_deleteStrip() {
+    if (_stripSpr) {
+        _stripSpr->deleteSprite();
+        delete _stripSpr;
+        _stripSpr = nullptr;
+    }
+    _stripReady = false;
+}
+
+bool ScrollWidget::_buildStrip() {
+    _deleteStrip();
+
+    if (!_spr || !_doscroll || !_sep || _fullWidth <= 0 || _textheight == 0) {
+        return false;
+    }
+
+    _stripSpr = new LGFX_Sprite(&dsp);
+    if (!_stripSpr) {
+        return false;
+    }
+
+    _stripSpr->setColorDepth(16);
+    _stripSpr->setPsram(true);
+    _setTextParams(_stripSpr);
+
+    if (!_stripSpr->createSprite(_fullWidth, _textheight)) {
+        _deleteStrip();
+        return false;
+    }
+
+    _stripSpr->fillSprite(_bgcolor);
+    _stripSpr->setCursor(0, 0);
+    _stripSpr->print(_text);
+    _stripSpr->print(_sep);
+    _stripReady = true;
+    return true;
+}
+#endif
 
 void ScrollWidget::setFontBySize(uint8_t size) {
     if (!_spr) return;
@@ -95,6 +188,9 @@ void ScrollWidget::setFontBySize(uint8_t size) {
     int sepW = _spr->textWidth(_sep);
     _fullWidth = _textwidth + sepW;
     _doscroll = (_textwidth > _width);
+#if DSP_MODEL == DSP_AXS15231B
+    _buildStrip();
+#endif
     _scrollOffset = 0;
     _scrollState = SCROLL_WAIT_START;
     _scrolldelay = millis();
@@ -110,6 +206,9 @@ void ScrollWidget::setText(const char* txt) {
     int sepW = _spr->textWidth(_sep);
     _fullWidth = _textwidth + sepW;
     _doscroll = (_textwidth > _width);
+#if DSP_MODEL == DSP_AXS15231B
+    _buildStrip();
+#endif
     _scrollOffset = 0;
     _scrollState = SCROLL_WAIT_START;
     _scrolldelay = millis();
@@ -127,13 +226,109 @@ void ScrollWidget::setText(const char* txt, const char* format) {
 }
 
 void ScrollWidget::loop() {
-    if (_locked || !_active || !_doscroll) return;
+#if DSP_MODEL == DSP_AXS15231B
+    if (_scrolltime < AXS_SCROLL_MIN_STEP_MS) {
+        _scrolltime = AXS_SCROLL_MIN_STEP_MS;
+    }
+    if (_scrolltime > AXS_SCROLL_MAX_STEP_MS) {
+        _scrolltime = AXS_SCROLL_MAX_STEP_MS;
+    }
+    if (_scrolldelta > AXS_SCROLL_MAX_DELTA_PX) {
+        _scrolldelta = AXS_SCROLL_MAX_DELTA_PX;
+    }
+#endif
+
+    if (_locked || !_active || !_doscroll) {
+#if DSP_MODEL == DSP_AXS15231B
+        if (scrollOwner == this) {
+            scrollOwner = nullptr;
+        }
+#endif
+        return;
+    }
+
+#if DSP_MODEL == DSP_AXS15231B
+    if (scrollOwner && scrollOwner != this) {
+        return;
+    }
+#endif
 
     uint32_t now = millis();
     uint32_t waitTime = (_scrollState == SCROLL_WAIT_START) ? _startscrolldelay : _scrolltime;
 
     if (now - _scrolldelay >= waitTime) {
+#if DSP_MODEL == DSP_AXS15231B
+        if (dsp.isFlushBusy() || dsp.isFrameBusy()) {
+#if AXS_SCROLL_DIAG
+            if (_scrollState == SCROLL_RUN && _config.top == AXS_SCROLL_DIAG_TOP) {
+                _diagBusySkips++;
+            }
+#endif
+            return;
+        }
+#endif
+        const bool wasRunning = (_scrollState == SCROLL_RUN);
+        const uint32_t lateMs = (now - _scrolldelay > waitTime) ? (now - _scrolldelay - waitTime) : 0;
+#if DSP_MODEL == DSP_AXS15231B
+        scrollOwner = this;
+#endif
+        uint32_t drawStartUs = micros();
         _draw();
+        uint32_t drawUs = micros() - drawStartUs;
+#if DSP_MODEL == DSP_AXS15231B && AXS_SCROLL_DIAG
+        if (wasRunning && _config.top == AXS_SCROLL_DIAG_TOP) {
+            if (_diagWindowMs == 0) {
+                _diagWindowMs = now;
+            }
+            if (_diagLastDrawMs != 0) {
+                uint32_t stepMs = now - _diagLastDrawMs;
+                _diagSamples++;
+                _diagSumStepMs += stepMs;
+                if (stepMs > _diagMaxStepMs) _diagMaxStepMs = stepMs;
+                if (stepMs > waitTime + 10) _diagMissed++;
+            }
+            _diagLastDrawMs = now;
+            if (lateMs > _diagMaxLateMs) _diagMaxLateMs = lateMs;
+            _diagSumDrawUs += drawUs;
+            if (drawUs > _diagMaxDrawUs) _diagMaxDrawUs = drawUs;
+
+            if (now - _diagWindowMs >= AXS_SCROLL_DIAG_INTERVAL_MS) {
+                Serial.printf(
+                    "AXS_SCROLL top=%u step=%u delta=%u samples=%lu avg_ms=%lu max_ms=%lu max_late=%lu draw_avg_us=%lu draw_max_us=%lu missed=%lu busy_skips=%lu strip=%u direct=%lu fill_us=%lu copy_us=%lu push_us=%lu owner=%u\n",
+                    _config.top,
+                    _scrolltime,
+                    _scrolldelta,
+                    (unsigned long)_diagSamples,
+                    (unsigned long)(_diagSamples ? _diagSumStepMs / _diagSamples : 0),
+                    (unsigned long)_diagMaxStepMs,
+                    (unsigned long)_diagMaxLateMs,
+                    (unsigned long)(_diagSamples ? _diagSumDrawUs / _diagSamples : 0),
+                    (unsigned long)_diagMaxDrawUs,
+                    (unsigned long)_diagMissed,
+                    (unsigned long)_diagBusySkips,
+                    (_stripReady && _stripSpr) ? 1 : 0,
+                    (unsigned long)_diagDirectBlits,
+                    (unsigned long)(_diagSamples ? _diagStripFillUs / _diagSamples : 0),
+                    (unsigned long)(_diagSamples ? _diagStripCopyUs / _diagSamples : 0),
+                    (unsigned long)(_diagSamples ? _diagStripPushUs / _diagSamples : 0),
+                    scrollOwner == this ? 1 : 0
+                );
+                _diagWindowMs = now;
+                _diagSamples = 0;
+                _diagSumStepMs = 0;
+                _diagMaxStepMs = 0;
+                _diagMaxLateMs = 0;
+                _diagMissed = 0;
+                _diagBusySkips = 0;
+                _diagSumDrawUs = 0;
+                _diagMaxDrawUs = 0;
+                _diagStripFillUs = 0;
+                _diagStripCopyUs = 0;
+                _diagStripPushUs = 0;
+                _diagDirectBlits = 0;
+            }
+        }
+#endif
         // Itt frissítjük az időbélyeget, miután a rajzolás megtörtént
         _scrolldelay = now;
     }
@@ -143,6 +338,9 @@ void ScrollWidget::setColors(uint16_t fg, uint16_t bg) {
     _fgcolor = fg;
     _bgcolor = bg;
     _setTextParams();
+#if DSP_MODEL == DSP_AXS15231B
+    _buildStrip();
+#endif
     _draw();
 }
 
@@ -156,6 +354,32 @@ void ScrollWidget::_clear() {
         dsp.fillRect(_config.left, _config.top, _width, _textheight, _bgcolor);
     }
 }
+
+#if DSP_MODEL == DSP_AXS15231B
+void ScrollWidget::_drawStrip() {
+    uint32_t t0 = micros();
+    _spr->fillSprite(_bgcolor);
+    uint32_t t1 = micros();
+    _stripSpr->pushSprite(_spr, -_scrollOffset, 0);
+    _stripSpr->pushSprite(_spr, _fullWidth - _scrollOffset, 0);
+    uint32_t t2 = micros();
+    uint16_t* pixels = static_cast<uint16_t*>(_spr->getBuffer());
+    bool usedDirectBlit = false;
+    if (millis() >= AXS_SCROLL_DIRECT_BLIT_AFTER_MS && pixels) {
+        usedDirectBlit = dsp.blitFrameBlock(_config.left, _config.top, _spr->width(), _spr->height(), pixels);
+    }
+    if (!usedDirectBlit) {
+        _spr->pushSprite(_config.left, _config.top);
+    }
+    uint32_t t3 = micros();
+    _diagStripFillUs += t1 - t0;
+    _diagStripCopyUs += t2 - t1;
+    _diagStripPushUs += t3 - t2;
+    if (usedDirectBlit) {
+        _diagDirectBlits++;
+    }
+}
+#endif
 
 void ScrollWidget::_draw() {
     if (!_active || _locked || !_spr || _spr->width() <= 0) return;
@@ -204,6 +428,11 @@ void ScrollWidget::_draw() {
             _scrollOffset = 0;
             _scrollState = SCROLL_WAIT_START;
             _scrolldelay = millis(); // Itt indul a 2 másodperces várakozás az elején
+#if DSP_MODEL == DSP_AXS15231B
+            if (scrollOwner == this) {
+                scrollOwner = nullptr;
+            }
+#endif
 
             // Kirajzoljuk az alapállapotot, hogy ne maradjon üres vagy félkész a kép
             _spr->fillSprite(_bgcolor);
@@ -217,6 +446,13 @@ void ScrollWidget::_draw() {
         _spr->fillSprite(_bgcolor);
 
         // Első példány kirajzolása (balra csúszik ki)
+#if DSP_MODEL == DSP_AXS15231B
+        if (_stripReady && _stripSpr) {
+            _drawStrip();
+            _scrolldelay = millis();
+            return;
+        }
+#endif
         _spr->setCursor(-_scrollOffset, 0);
         _spr->print(_text);
         _spr->print(_sep);
@@ -236,6 +472,11 @@ void ScrollWidget::_draw() {
     }
 }
 void ScrollWidget::setActive(bool act, bool clr) {
+#if DSP_MODEL == DSP_AXS15231B
+    if (!act && scrollOwner == this) {
+        scrollOwner = nullptr;
+    }
+#endif
     // 1. Alaphelyzetbe állítjuk a belső változókat, mielőtt bármi történne
     if (act) {
         _scrollOffset = 0;
@@ -251,6 +492,11 @@ void ScrollWidget::setActive(bool act, bool clr) {
 }
 
 void ScrollWidget::_reset() {
+#if DSP_MODEL == DSP_AXS15231B
+    if (scrollOwner == this) {
+        scrollOwner = nullptr;
+    }
+#endif
     _scrolldelay = millis();
     _scrollOffset = 0;
     _scrollState = SCROLL_WAIT_START;

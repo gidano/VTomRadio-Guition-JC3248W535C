@@ -131,4 +131,34 @@ class LGFX_Base : public lgfx::LGFX_Device {
 #endif
     setPanel(&_panel);
   }
+
+#if DSP_MODEL == DSP_AXS15231B
+  bool isFlushBusy() const {
+    return _panel.isFlushBusy();
+  }
+
+  bool isFrameBusy() const {
+    return _panel.isFrameBusy();
+  }
+
+  bool tryBeginFrameAccess() {
+    return _panel.tryBeginFrameAccess();
+  }
+
+  void endFrameAccess() {
+    _panel.endFrameAccess();
+  }
+
+  bool blitFrameBlock(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* pixels) {
+    return _panel.blitFrameBlock(x, y, w, h, pixels);
+  }
+
+  bool blitFrameBlockDeferred(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* pixels) {
+    return _panel.blitFrameBlockDeferred(x, y, w, h, pixels);
+  }
+
+  bool fillFrameBlockDeferred(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color) {
+    return _panel.fillFrameBlockDeferred(x, y, w, h, color);
+  }
+#endif
 };

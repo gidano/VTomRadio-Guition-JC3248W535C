@@ -475,6 +475,24 @@ void ClockWidget::_printClock(bool redraw) {
     // ------------------------------------------------------------
     // 6) Fő sprite kirajzolása
     // ------------------------------------------------------------
+#if DSP_MODEL == DSP_AXS15231B
+    if (!redraw) {
+        auto* pixels = static_cast<uint16_t*>(_spr->getBuffer());
+        if (pixels && dsp.blitFrameBlockDeferred(_clockleft, _config.top, _spr->width(), _spr->height(), pixels)) {
+            _lastRenderedHour = _drawTimeinfo.tm_hour;
+            _lastRenderedMinute = _drawTimeinfo.tm_min;
+            _lastRenderedSecond = currentSecond;
+            _lastRenderedDots = showDots;
+#if CLOCK_WIDGET_SEC_DEBUG
+            tm netDbg{};
+            network_get_timeinfo_snapshot(&netDbg);
+            Serial.printf("[CLK DRAW] ms=%lu snap=%02d:%02d:%02d net=%02d:%02d:%02d redraw=%d deferred=1\n", millis(), _drawTimeinfo.tm_hour, _drawTimeinfo.tm_min,
+                          _drawTimeinfo.tm_sec, netDbg.tm_hour, netDbg.tm_min, netDbg.tm_sec, (int)redraw);
+#endif
+            return;
+        }
+    }
+#endif
     _spr->pushSprite(_clockleft, _config.top);
     _lastRenderedHour = _drawTimeinfo.tm_hour;
     _lastRenderedMinute = _drawTimeinfo.tm_min;

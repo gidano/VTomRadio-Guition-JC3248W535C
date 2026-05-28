@@ -29,7 +29,12 @@ void SliderWidget::_drawslider() {
         valwidth = map(clampedValue, 0, _max, 0, innerWidth);
     }
     if (_oldvalwidth == valwidth) { return; }
-    dsp.fillRect(_config.left + _outlined + min(valwidth, _oldvalwidth), _config.top + _outlined, abs(_oldvalwidth - valwidth), _height - _outlined * 2, _oldvalwidth > valwidth ? _bgcolor : _fgcolor);
+    int32_t  x = _config.left + _outlined + min(valwidth, _oldvalwidth);
+    int32_t  y = _config.top + _outlined;
+    int32_t  w = abs(_oldvalwidth - valwidth);
+    int32_t  h = _height - _outlined * 2;
+    uint16_t color = _oldvalwidth > valwidth ? _bgcolor : _fgcolor;
+    dsp.fillRect(x, y, w, h, color);
     _oldvalwidth = valwidth;
 }
 
