@@ -133,11 +133,11 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 
 /*----- Ezzel a beállítással nincs görgetés az időjárás sávon. -----*/
 /*----- With this setting there is no scrolling on the weather bar. -----*/
-#define WEATHER_FMT_SHORT
+// #define WEATHER_FMT_SHORT
 
-/*----- Ezzel a beállítással a teljes időjárás jelentés megjelenik. -----*/
+/*----- Ezzel a beállítással a teljes időjárás jelentés megjelenik: pl. 25.8°C • 1026 hPa • 41% RH • 10km/ó [ÉK] -----*/
 /*----- With this setting, the full weather report is displayed. -----*/
-// #define EXT_WEATHER  true
+#define EXT_WEATHER  true
 
 /*----- Ezzel a beállítással a szél sebessége km/h lesz. -----*/
 /*----- With this setting, the wind speed will be km/h. -----*/
