@@ -1,5 +1,5 @@
 # VTom Radio - ESP32-S3 alapú internetes rádió
-<img src="images/fokep.png" alt="Projekt logó" width="800">
+<img src="images/vtom_radio_jc3248w535C.jpg" alt="GUITION" width="800">
 
 ### A program alapja ёRadio v0.9.720 https://github.com/e2002/yoradio   
 Főbb változtatások:
