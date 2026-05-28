@@ -32,22 +32,22 @@ const char octc[] PROGMEM = "október";
 const char nov[] PROGMEM = "november";
 const char decc[] PROGMEM = "december";
 
-const char wn_N[] PROGMEM = "észak";
-const char wn_NNE[] PROGMEM = "észak-északkelet";
-const char wn_NE[] PROGMEM = "északkelet";
-const char wn_ENE[] PROGMEM = "kelet-északkelet";
-const char wn_E[] PROGMEM = "kelet";
-const char wn_ESE[] PROGMEM = "kelet-délkelet";
-const char wn_SE[] PROGMEM = "délkelet";
-const char wn_SSE[] PROGMEM = "délkelet-dél";
-const char wn_S[] PROGMEM = "dél";
-const char wn_SSW[] PROGMEM = "dél-délnyugat";
-const char wn_SW[] PROGMEM = "délnyugat";
-const char wn_WSW[] PROGMEM = "nyugat-délnyugat";
-const char wn_W[] PROGMEM = "nyugat";
-const char wn_WNW[] PROGMEM = "nyugat-északnyugat";
-const char wn_NW[] PROGMEM = "északnyugat";
-const char wn_NNW[] PROGMEM = "északnyugat-nyugat";
+const char wn_N[] PROGMEM = "É";
+const char wn_NNE[] PROGMEM = "É-ÉK";
+const char wn_NE[] PROGMEM = "ÉK";
+const char wn_ENE[] PROGMEM = "K-ÉK";
+const char wn_E[] PROGMEM = "K";
+const char wn_ESE[] PROGMEM = "K-DK";
+const char wn_SE[] PROGMEM = "DK";
+const char wn_SSE[] PROGMEM = "DK-D";
+const char wn_S[] PROGMEM = "D";
+const char wn_SSW[] PROGMEM = "D-DNy";
+const char wn_SW[] PROGMEM = "DNy";
+const char wn_WSW[] PROGMEM = "Ny-DNy";
+const char wn_W[] PROGMEM = "Ny";
+const char wn_WNW[] PROGMEM = "Ny-ÉNy";
+const char wn_NW[] PROGMEM = "ÉNy";
+const char wn_NNW[] PROGMEM = "ÉNy-Ny";
 
 const char *const dow[] PROGMEM = {sun, mon, tue, wed, thu, fri, sat};
 const char *const dowf[] PROGMEM = {sunf, monf, tuef, wedf, thuf, frif, satf};
@@ -69,15 +69,15 @@ const char apPassTxt[] PROGMEM = "Jelszo";
 const char bootstrFmt[] PROGMEM = "Csatlakozas: %s";
 const char apSettFmt[] PROGMEM = "A radio elerhetosege: HTTP://%s/";
 // clang-format on
+#ifdef WIND_SPEED_IN_KMH
+  #define WIND_UNIT "km/ó"
+#else
+  #define WIND_UNIT "m/s"
+#endif
 #ifdef WEATHER_FMT_SHORT
-const char weatherFmt[] PROGMEM ="%.1f°C \007 %d hPa \007 %d%% RH";
+const char weatherFmt[] PROGMEM ="%.1f°C \007 %d hPa \007 %d%% RH \007 %.0f" WIND_UNIT " [%s]";
 #else
   #if EXT_WEATHER
-    #ifdef WIND_SPEED_IN_KMH
-      #define WIND_UNIT "km/h"
-    #else
-      #define WIND_UNIT "m/s"
-    #endif
 const char weatherFmt[] PROGMEM =
   "%s, %.1f°C \007 hőérzet: %.1f°C \007 légnyomás: %d hPa \007 páratartalom: %d%% \007 szélsebesség: %.1f " WIND_UNIT " [%s]";
   #else

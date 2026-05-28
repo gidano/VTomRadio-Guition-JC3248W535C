@@ -69,15 +69,15 @@ const char        apPassTxt[]    PROGMEM = "CONTRASEÑA";
 const char       bootstrFmt[]    PROGMEM = "CONECTANDO CON %s";
 const char        apSettFmt[]    PROGMEM = "PAGINA DE CONFIGURACION: HTTP://%s/";
 // clang-format on
+#ifdef WIND_SPEED_IN_KMH
+  #define WIND_UNIT "km/h"
+#else
+  #define WIND_UNIT "m/s"
+#endif
 #ifdef WEATHER_FMT_SHORT  // Módosítás
-const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH";
+const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH  \007  %.0f" WIND_UNIT " [%s]";
 #else
   #if EXT_WEATHER
-    #ifdef WIND_SPEED_IN_KMH
-      #define WIND_UNIT "km/h"
-    #else
-      #define WIND_UNIT "m/s"
-    #endif
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 sensación térmica: %.1f°C \007 'presion': %d hPa \007 humedad: %d%% \007 viento: %.1f " WIND_UNIT " [%s]";
   #else
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 'presion': %d hPa \007 humedad: %d%%";

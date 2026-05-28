@@ -69,15 +69,15 @@ const char apPassTxt[] PROGMEM = "PASSWORT";
 const char bootstrFmt[] PROGMEM = "VERBINDEN %s";
 const char apSettFmt[] PROGMEM = "SEITE MIT EINSTELLUNGEN: HTTP://%s/";
 
+#ifdef WIND_SPEED_IN_KMH
+  #define WIND_UNIT "km/h"
+#else
+  #define WIND_UNIT "m/s"
+#endif
 #ifdef WEATHER_FMT_SHORT  // Módosítás
-const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH";
+const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH  \007  %.0f" WIND_UNIT " [%s]";
 #else
   #if EXT_WEATHER
-    #ifdef WIND_SPEED_IN_KMH
-      #define WIND_UNIT "km/h"
-    #else
-      #define WIND_UNIT "m/s"
-    #endif
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 gefühlte Temperatur: %.1f°C \007 Druck: %d hPa \007 Luftfeuchtigkeit: %d%% \007 Wind: %.1f " WIND_UNIT " [%s]";
   #else
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 Druck: %d hPa \007 Luftfeuchtigkeit: %d%%";

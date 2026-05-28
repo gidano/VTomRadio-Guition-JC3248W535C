@@ -70,15 +70,15 @@ const char apPassTxt[] PROGMEM = "wachtwoord";
 const char bootstrFmt[] PROGMEM = "verbinden met: %s";
 const char apSettFmt[] PROGMEM = "instellingen: HTTP://%s/";
 // clang-format on
+#ifdef WIND_SPEED_IN_KMH
+  #define WIND_UNIT "km/h"
+#else
+  #define WIND_UNIT "m/s"
+#endif
 #ifdef WEATHER_FMT_SHORT
-const char weatherFmt[] PROGMEM = "temp:%.1f°C\007 druk:%d hPa\007 hum:%d%% RH";
+const char weatherFmt[] PROGMEM = "temp:%.1f°C\007 druk:%d hPa\007 hum:%d%% RH\007 %.0f" WIND_UNIT " [%s]";
 #else
   #if EXT_WEATHER
-    #ifdef WIND_SPEED_IN_KMH
-      #define WIND_UNIT "km/h"
-    #else
-      #define WIND_UNIT "m/s"
-    #endif
 const char weatherFmt[] PROGMEM =
   "%s, %.1f°C \007 gevoelstemperatuur: %.1f°C \007 luchtdruk: %d hPa \007 luchtvochtigheid: %d%% \007 wind: %.1f " WIND_UNIT " [%s]";
   #else

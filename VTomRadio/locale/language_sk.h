@@ -70,15 +70,15 @@ const char        apPassTxt[]    PROGMEM = "HESLO";
 const char       bootstrFmt[]    PROGMEM = "Pripája sa %s";
 const char        apSettFmt[]    PROGMEM = "Stránka s nastaveniami: HTTP://%s/";
 // clang-format on
+#ifdef WIND_SPEED_IN_KMH
+  #define WIND_UNIT "km/h"
+#else
+  #define WIND_UNIT "m/s"
+#endif
 #ifdef WEATHER_FMT_SHORT
-const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH";
+const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH  \007  %.0f" WIND_UNIT " [%s]";
 #else
   #if EXT_WEATHER
-    #ifdef WIND_SPEED_IN_KMH
-      #define WIND_UNIT "km/h"
-    #else
-      #define WIND_UNIT "m/s"
-    #endif
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 pocitová: %.1f°C \007 Tlak: %d hPa \007 Vlhkosť: %d%% \007 Vietor: %.1f " WIND_UNIT " [%s]";
   #else
 const char weatherFmt[] PROGMEM = "%s, %.1f°C \007 Tlak: %d hPa \007 vlhkosť: %d%%";
