@@ -25,6 +25,7 @@ Főbb változtatások:
 ## Telepitesi tanacsok
 !!! Figyelem !!!
 Ez a verzió kizárólag az ESP32-S3-devkit-C1 N16R8, 44 lábú modulhoz és
+- Guition JC3248W535C, 480x320, AXS15231B képernyő-vezérlő
 - ILI9488 480x320 felbontású SPI (LCD) 
 - ST7796 480x320 felbontású SPI (LCD)   
 kijelzőhöz készült és csak az audioI2S DAC eszközzel működik megfelelően, [PCM5102A](PCM5102A) -val tesztelve!
