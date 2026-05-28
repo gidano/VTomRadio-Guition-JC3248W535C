@@ -188,6 +188,7 @@ class NetServer {
     bool begin(bool quiet=false);
     void loop();
     void requestOnChange(requestType_e request, uint8_t clientId);
+    bool requestOnChangeNoWait(requestType_e request, uint8_t clientId);
     void setRSSI(int val) { rssi = val; };
     int  getRSSI()        { return rssi; };
     void chunkedHtmlPage(const String& contentType, AsyncWebServerRequest *request, const char * path);
@@ -214,4 +215,3 @@ class NetServer {
 
 extern NetServer netserver;
 extern AsyncWebSocket websocket;
-

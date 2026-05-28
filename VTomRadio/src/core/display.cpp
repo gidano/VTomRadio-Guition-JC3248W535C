@@ -1,4 +1,4 @@
-﻿#include "Arduino.h"
+#include "Arduino.h"
 #include "options.h"
 #include "WiFi.h"
 #include "time.h"
@@ -29,13 +29,27 @@ Nextion nextion;
 #    define CORE_STACK_SIZE 1024 * 8 // 4
 #endif
 #ifndef DSP_TASK_PRIORITY
-#    define DSP_TASK_PRIORITY 3 //"task_prioritas"
+#    if DSP_MODEL == DSP_AXS15231B
+#        define DSP_TASK_PRIORITY 2
+#    else
+#        define DSP_TASK_PRIORITY 3 //"task_prioritas"
+#    endif
 #endif
 #ifndef DSP_TASK_CORE_ID
 #    define DSP_TASK_CORE_ID 0
 #endif
 #ifndef DSP_TASK_DELAY
-#    define DSP_TASK_DELAY pdMS_TO_TICKS(30) // cap for 50 fps
+#    if DSP_MODEL == DSP_AXS15231B
+#        define DSP_TASK_DELAY pdMS_TO_TICKS(5)
+#    else
+#        define DSP_TASK_DELAY pdMS_TO_TICKS(30) // cap for 50 fps
+#    endif
+#endif
+#ifndef RSSI_TEXT_HYSTERESIS_DB
+#    define RSSI_TEXT_HYSTERESIS_DB 3
+#endif
+#ifndef RSSI_TEXT_FORCE_UPDATE_MS
+#    define RSSI_TEXT_FORCE_UPDATE_MS 30000UL
 #endif
 
 #define DSP_QUEUE_TICKS 0
@@ -315,7 +329,8 @@ void Display::_start() {
     _pager->setPage(pages[PG_PLAYER]);
 
     if (_heapbar) {
-        _heapbar->lock(!config.store.audioinfo);
+        bool shouldLock = !config.store.audioinfo;
+        if (_heapbar->locked() != shouldLock) { _heapbar->lock(shouldLock); }
         if (config.store.audioinfo) { _heapbar->setValue(player.inBufferFilled()); }
     }
 
@@ -376,9 +391,13 @@ void Display::_applyRssiMode() {
             _rssibox->lock(false);
             char buf[16];
             snprintf(buf, sizeof(buf), "%d dBm", currentRssi);
+            _lastRssiText = currentRssi;
+            _lastRssiTextMs = millis();
             _rssibox->setText(buf);
         }
     } else {
+        _lastRssiText = 9999;
+        _lastRssiTextMs = 0;
         if (_rssibox) { _rssibox->lock(true); }
         if (_wifiwidget) {
             _wifiwidget->setRSSI(currentRssi);
@@ -531,11 +550,15 @@ void Display::loop() {
         _bootScreen();
         return;
     }
+#if DSP_MODEL != DSP_AXS15231B
     if (_mode == STATIONS) {
         _plcurrent->loop(); // Ez hajtja az X irányú görgetést a lejátszási listában, ahol a hosszabb szövegek vannak.
     }
+#endif
     if (displayQueue == NULL || _locked) { return; }
+#if DSP_MODEL != DSP_AXS15231B
     _pager->loop();
+#endif
 #    ifdef USE_NEXTION
     nextion.loop();
 #    endif
@@ -592,8 +615,9 @@ void Display::loop() {
 
                 case AUDIOINFO:
                     if (_heapbar) {
-                        _heapbar->lock(!config.store.audioinfo);
-                        _heapbar->setValue(player.inBufferFilled());
+                        bool shouldLock = !config.store.audioinfo;
+                        if (_heapbar->locked() != shouldLock) { _heapbar->lock(shouldLock); }
+                        if (config.store.audioinfo) { _heapbar->setValue(player.inBufferFilled()); }
                     }
                     break;
 
@@ -618,7 +642,15 @@ void Display::loop() {
                     break;
 
                 case NEWWEATHER:
-                    if (_weather && timekeeper.weatherBuf) { _weather->setText(timekeeper.weatherBuf); }
+                    if (_weather && timekeeper.weatherBuf) {
+                        _weather->setText(timekeeper.weatherBuf);
+#if DSP_MODEL == DSP_AXS15231B
+                        // AXS only: a weather refresh must not keep an old scroll owner.
+                        // The normal page order will then choose station first, then metadata,
+                        // and weather only if the higher-priority rows do not need scrolling.
+                        ScrollWidget::releaseScrollOwner();
+#endif
+                    }
                     break;
 
                 case SHOWRSSIMODE:
@@ -670,12 +702,24 @@ void Display::loop() {
         }
     }
 
+#if DSP_MODEL == DSP_AXS15231B
+    _pager->loop();
+#endif
     dsp.loop();
 } // loop vége
 
 void Display::_setRSSI(int rssi) {
     if (config.store.rssiAsText && _rssibox) {
-        _rssibox->setText(rssi, "%ddBm");
+        const uint32_t now = millis();
+        const bool     firstUpdate = (_lastRssiText == 9999);
+        const bool     changedEnough = abs(rssi - _lastRssiText) >= RSSI_TEXT_HYSTERESIS_DB;
+        const bool     forceUpdate = !firstUpdate && RSSI_TEXT_FORCE_UPDATE_MS > 0 && (now - _lastRssiTextMs >= RSSI_TEXT_FORCE_UPDATE_MS);
+
+        if (!firstUpdate && !changedEnough && !forceUpdate) { return; }
+
+        _lastRssiText = rssi;
+        _lastRssiTextMs = now;
+        _rssibox->setText(rssi, "%d dBm");
         return;
     }
     if (_wifiwidget) {
@@ -704,6 +748,11 @@ void Display::_station() {
     } else {
         _meta->setText(config.station.name);
     }
+#if DSP_MODEL == DSP_AXS15231B
+    // AXS only: when station text changes, let the next display loop pick the
+    // highest-priority long text again: station -> artist/title -> weather.
+    ScrollWidget::releaseScrollOwner();
+#endif
 
     /*#ifdef USE_NEXTION
     nextion.newNameset(config.station.name);
@@ -737,6 +786,10 @@ void Display::_title() {
         _title1->setText("");
         if (_title2) { _title2->setText(""); }
     }
+#if DSP_MODEL == DSP_AXS15231B
+    // AXS only: new metadata should be able to pre-empt weather scrolling.
+    ScrollWidget::releaseScrollOwner();
+#endif
     if (player_on_track_change) { player_on_track_change(); }
     pm.on_track_change();
 }

@@ -61,6 +61,13 @@ void Player::sendCommand(playerRequestParams_t request) {
   xQueueSend(playerQueue, &request, PLQ_SEND_DELAY);
 }
 
+bool Player::sendCommandNoWait(playerRequestParams_t request) {
+  if (playerQueue == NULL) {
+    return false;
+  }
+  return xQueueSend(playerQueue, &request, 0) == pdTRUE;
+}
+
 void Player::resetQueue() {
   if (playerQueue != NULL) {
     xQueueReset(playerQueue);

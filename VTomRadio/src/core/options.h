@@ -344,7 +344,10 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
   #define DSP_INVERT_TITLE  true   // Invert title colors for displays ?
 #endif
 #ifndef EXT_WEATHER
-  #define EXT_WEATHER       true   // Extended weather
+  #define EXT_WEATHER       false  // FMT/short weather disabled by default; enable with EXT_WEATHER in myoptions.h
+#endif
+#if EXT_WEATHER && !defined(WEATHER_FMT_SHORT)
+  #define WEATHER_FMT_SHORT        // Keep original weather code path: EXT_WEATHER=true activates existing short/FMT format
 #endif
 #ifndef RSSI_DIGIT
   #define RSSI_DIGIT       false   // Extended weather

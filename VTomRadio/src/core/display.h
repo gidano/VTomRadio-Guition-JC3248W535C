@@ -74,25 +74,27 @@ class Display {
     WifiWidget*     _wifiwidget;
     NamedayWidget*  _namedaywidget;
 
-    bool    _locked = false;
-    uint8_t _bootStep;
-    void    _time(bool redraw = false);
-    void    _apScreen();
-    void    _swichMode(displayMode_e newmode);
-    void    _drawPlaylist();
-    void    _volume();
-    void    _title();
-    void    _station();
-    void    _drawNextStationNum(uint16_t num);
-    void    _createDspTask();
-    void    _showDialog(const char* title);
-    void    _buildPager();
-    void    _bootScreen();
-    void    _layoutChange(bool played);
-    void    _setRSSI(int rssi);
-    void    _updateBootSprite(int ssidIndex);
-    void    _refreshThemeColors();
-    void    _applyRssiMode();
+    bool     _locked = false;
+    uint8_t  _bootStep;
+    int      _lastRssiText = 9999;
+    uint32_t _lastRssiTextMs = 0;
+    void     _time(bool redraw = false);
+    void     _apScreen();
+    void     _swichMode(displayMode_e newmode);
+    void     _drawPlaylist();
+    void     _volume();
+    void     _title();
+    void     _station();
+    void     _drawNextStationNum(uint16_t num);
+    void     _createDspTask();
+    void     _showDialog(const char* title);
+    void     _buildPager();
+    void     _bootScreen();
+    void     _layoutChange(bool played);
+    void     _setRSSI(int rssi);
+    void     _updateBootSprite(int ssidIndex);
+    void     _refreshThemeColors();
+    void     _applyRssiMode();
 };
 
 #else

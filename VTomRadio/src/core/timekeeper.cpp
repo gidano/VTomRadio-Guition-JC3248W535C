@@ -16,6 +16,26 @@
 #    define DUMMYDISPLAY
 #endif
 
+#ifndef RSSI_DISPLAY_HYSTERESIS_DB
+#    define RSSI_DISPLAY_HYSTERESIS_DB 3
+#endif
+#ifndef RSSI_DISPLAY_FORCE_UPDATE_MS
+#    define RSSI_DISPLAY_FORCE_UPDATE_MS 30000UL
+#endif
+#ifndef AXS_RSSI_AUDIOINFO_REDRAW
+#    if DSP_MODEL == DSP_AXS15231B
+#        define AXS_RSSI_AUDIOINFO_REDRAW 1
+#    else
+#        define AXS_RSSI_AUDIOINFO_REDRAW 1
+#    endif
+#endif
+#ifndef AXS_RSSI_POLL_INTERVAL_MS
+#    if DSP_MODEL == DSP_AXS15231B
+#        define AXS_RSSI_POLL_INTERVAL_MS 2000UL
+#    else
+#        define AXS_RSSI_POLL_INTERVAL_MS 2000UL
+#    endif
+#endif
 #if RTCSUPPORTED
 // #define TIME_SYNC_INTERVAL  24*60*60*1000
 #else
@@ -191,7 +211,6 @@ bool TimeKeeper::loop0() { // core0 (display)
     }
     if (currentTime - _last2s >= 2000) { // 2sec
         _last2s = currentTime;
-        _upRSSI();
     }
     if (currentTime - _last5s >= 5000) { // 5sec
         _last5s = currentTime;
@@ -224,6 +243,7 @@ bool TimeKeeper::loop1() { // core1 (player)
     }
     if (currentTime - _last2s >= 2000) { // 2sec
         _last2s = currentTime;
+        _upRSSI();
     }
     /*----- by Andrzej Jaroszuk -----*/
     /*----- Megállítja a lejátszást internet rádió módban, ha a lejátszási puffer elfogy. Utána  újraindítja a lejátszást. -----*/
@@ -366,22 +386,56 @@ void TimeKeeper::_upScreensaver() {
 
 #define RSSI_TESZT false
 void TimeKeeper::_upRSSI() {
-    if (network.status == CONNECTED) {
+    static uint32_t lastRssiPollMs = 0;
+    const uint32_t  rssiNow = millis();
+    if (network.status == CONNECTED && (lastRssiPollMs == 0 || rssiNow - lastRssiPollMs >= AXS_RSSI_POLL_INTERVAL_MS)) {
+        lastRssiPollMs = rssiNow;
 #if (RSSI_TESZT)
         static int fakeRssi = -100;
-        netserver.setRSSI(fakeRssi);
+        const int currentRssi = fakeRssi;
         fakeRssi += 10;
         if (fakeRssi > -10) fakeRssi = -100;
 #else
-        netserver.setRSSI(WiFi.RSSI());
+        const int currentRssi = WiFi.RSSI();
 #endif
-        netserver.requestOnChange(NRSSI, 0);
-        if (display.ready()) { display.putRequest(DSPRSSI, netserver.getRSSI()); }
+        netserver.setRSSI(currentRssi);
+        netserver.requestOnChangeNoWait(NRSSI, 0);
+
+        if (display.ready()) {
+            static int      lastDisplayRssi = 9999;
+            static int8_t   lastDisplayStrength = -1;
+            static uint32_t lastDisplayMs = 0;
+
+            const uint32_t now = millis();
+            const bool     firstUpdate = (lastDisplayRssi == 9999);
+            const bool     forceUpdate = !firstUpdate && RSSI_DISPLAY_FORCE_UPDATE_MS > 0 && (now - lastDisplayMs >= RSSI_DISPLAY_FORCE_UPDATE_MS);
+            bool           shouldUpdateDisplay = firstUpdate || forceUpdate;
+
+            if (config.store.rssiAsText) {
+                shouldUpdateDisplay = shouldUpdateDisplay || (abs(currentRssi - lastDisplayRssi) >= RSSI_DISPLAY_HYSTERESIS_DB);
+            } else {
+                int8_t strength = 0;
+                if (currentRssi >= -55) strength = 4;
+                else if (currentRssi >= -67) strength = 3;
+                else if (currentRssi >= -75) strength = 2;
+                else if (currentRssi >= -85) strength = 1;
+                shouldUpdateDisplay = shouldUpdateDisplay || (strength != lastDisplayStrength);
+                lastDisplayStrength = strength;
+            }
+
+            if (shouldUpdateDisplay || (AXS_RSSI_AUDIOINFO_REDRAW && config.store.audioinfo && player.isRunning())) {
+                lastDisplayRssi = currentRssi;
+                lastDisplayMs = now;
+                display.putRequest(DSPRSSI, currentRssi);
+            }
+        }
     }
 #ifdef USE_SD
-    if (display.mode() != SDCHANGE) { player.sendCommand({PR_CHECKSD, 0}); }
+    if (config.getMode() == PM_SDCARD && display.mode() != SDCHANGE) { player.sendCommandNoWait({PR_CHECKSD, 0}); }
 #endif
-    player.sendCommand({PR_VUTONUS, 0});
+#if DSP_MODEL != DSP_AXS15231B
+    player.sendCommandNoWait({PR_VUTONUS, 0});
+#endif
 }
 
 void TimeKeeper::_upSDPos() {
@@ -541,6 +595,8 @@ bool _getWeather() {
 #    endif
 
                         if (!result) { return; }
+                        uint8_t wind_idx = (uint8_t)(((float)(wind_deg % 360) + 11.25f) / 22.5f);
+                        if (wind_idx > 15) { wind_idx = 0; }
 
 #    ifdef USE_NEXTION
                         nextion.putcmdf("press_txt.txt=\"%dmm\"", press);
@@ -573,12 +629,12 @@ bool _getWeather() {
                         nextion.weatherVisible(1);
 #    endif
 
-                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dmmHg, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, (int)(wind_deg / 22.5));
+                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dmmHg, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, wind_idx);
 #    ifdef WEATHER_FMT_SHORT
-                        sprintf(timekeeper.weatherBuf, LANG::weatherFmt, tempf, press, hum);
+                        sprintf(timekeeper.weatherBuf, LANG::weatherFmt, tempf, press, hum, wind_speed, LANG::wind[wind_idx]);
 #    else
 #        if EXT_WEATHER
-                        sprintf(timekeeper.weatherBuf, LANG::weatherFmt, desc, tempf, tempfl, press, hum, wind_speed, LANG::wind[(int)(wind_deg / 22.5)]);
+                        sprintf(timekeeper.weatherBuf, LANG::weatherFmt, desc, tempf, tempfl, press, hum, wind_speed, LANG::wind[wind_idx]);
 #        else
                         sprintf(timekeeper.weatherBuf, LANG::weatherFmt, desc, tempf, press, hum);
 #        endif

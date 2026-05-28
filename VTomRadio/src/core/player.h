@@ -6,7 +6,7 @@
 #endif
 
 #ifndef PLQ_SEND_DELAY
-  #define PLQ_SEND_DELAY pdMS_TO_TICKS(1000)  //portMAX_DELAY
+  #define PLQ_SEND_DELAY 0
 #endif
 enum playerRequestType_e : uint8_t {
   PR_PLAY = 1,
@@ -64,6 +64,7 @@ public:
   void setError();
   void setError(const char *e);
   void sendCommand(playerRequestParams_t request);
+  bool sendCommandNoWait(playerRequestParams_t request);
   void resetQueue();
 #ifdef MQTT_ROOT_TOPIC
   void browseUrl();

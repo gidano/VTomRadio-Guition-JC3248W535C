@@ -1493,6 +1493,16 @@ void NetServer::requestOnChange(requestType_e request, uint8_t clientId) {
   xQueueSend(nsQueue, &nsrequest, NSQ_SEND_DELAY);
 }
 
+bool NetServer::requestOnChangeNoWait(requestType_e request, uint8_t clientId) {
+  if (nsQueue == NULL) {
+    return false;
+  }
+  nsRequestParams_t nsrequest;
+  nsrequest.type = request;
+  nsrequest.clientId = clientId;
+  return xQueueSend(nsQueue, &nsrequest, 0) == pdTRUE;
+}
+
 void NetServer::resetQueue() {
   if (nsQueue != NULL) {
     xQueueReset(nsQueue);
