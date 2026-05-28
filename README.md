@@ -37,6 +37,7 @@ A programhoz ajánlott az Arduino IDE használata.
 - Első telepítés előtt célszerű a teljes flash memória törlése az előző verziók maradványainak eltávolítása érdekében!
 - A helyes működéshez az alábbi helyen található fájlokat indítás után a webfelületen a Board menü alatt fel kell tölteni a LittleFS-partícióra!
 - Erre használható a főkönyvtárban található LittleFs-SPIFFS Partition Manager alkalmazásom is, USB csatlakozáson a soros porton keresztül.
+  A webes feltöltés előnyösebb, lényegesen gyorsabb!
 ```
         VTomRadio/data/data     Lejátszási lista, jelszó
         VTomRadio/data/www      WEB UI fájlok
