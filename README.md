@@ -111,7 +111,7 @@ A névnapok megjelenítése a WEB-es felületen kikapcsolható options/ SYSTEM->
    - 3D nyomtatási terv --> https://www.printables.com/model/1621877-yoradio-case-for-ips-ctp-35-inch-spi-red-ili9488-f
 
 ## Version history: 
-### v0.1.1
+### v0.1.1, v0.1.1a
 - Csatornaváltásnál a kijelzőn megjelenő hibák javítása.
 ### v0.1.0
 - Első stabil kiadás.   

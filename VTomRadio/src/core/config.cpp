@@ -90,8 +90,11 @@ void parseVersionTriplet(const char* ver, uint8_t& a, uint8_t& b, uint8_t& c) {
 } // namespace
 
 void u8fix(char* src) { // Ha az utolsó tőbbájtos karakter (ékezetes) utolsó bájtja hiányzik akkor az elejét levágja.
-    char last = src[strlen(src) - 1];
-    if ((uint8_t)last >= 0xC2) { src[strlen(src) - 1] = '\0'; }
+    if (!src) { return; }
+    const size_t len = strlen(src);
+    if (len == 0) { return; }
+    char last = src[len - 1];
+    if ((uint8_t)last >= 0xC2) { src[len - 1] = '\0'; }
 }
 
 bool Config::_isFSempty() {
@@ -1410,7 +1413,7 @@ void Config::setTitle(const char* title) {
 void Config::setStation(const char* station) {
     memset(config.station.name, 0, BUFLEN);
     strlcpy(config.station.name, station, BUFLEN);
-    u8fix(config.station.title);
+    u8fix(config.station.name);
 }
 
 void Config::indexPlaylist() {
@@ -1420,7 +1423,7 @@ void Config::indexPlaylist() {
     File index = LittleFS.open(INDEX_PATH, "w");
     while (playlist.available()) {
         uint32_t pos = playlist.position();
-        if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, tmpBuf2, sOvol)) { index.write((uint8_t*)&pos, 4); }
+        if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) { index.write((uint8_t*)&pos, 4); }
     }
     index.close();
     playlist.close();
@@ -1465,7 +1468,7 @@ void Config::indexDLNAPlaylist() {
         }
 
         // FONTOS: parseCSV kapjon ÍRHATÓ buffert (lineBuf), ne String.c_str()-t
-        if (parseCSV(lineBuf, tmpBuf, tmpBuf2, sOvol)) {
+        if (parseCSV(lineBuf, tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) {
             index.write((uint8_t*)&pos, 4);
             ok++;
         }
@@ -1538,7 +1541,7 @@ bool Config::loadStation(uint16_t ls) {
     index.readBytes((char*)&pos, 4);
     index.close();
     playlist.seek(pos, SeekSet);
-    if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, tmpBuf2, sOvol)) {
+    if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) {
         memset(station.url, 0, BUFLEN);
         memset(station.name, 0, BUFLEN);
         strncpy(station.name, tmpBuf, BUFLEN);
@@ -1577,97 +1580,127 @@ void Config::escapeQuotes(const char* input, char* output, size_t maxLen) {
     output[j] = '\0';
 }
 
-bool Config::parseCSV(const char* line, char* name, char* url, int& ovol) {
+bool Config::parseCSV(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol) {
     char*       tmpe;
     const char* cursor = line;
     char        buf[5];
+    if (!line || !name || !url || nameSize == 0 || urlSize == 0) { return false; }
     tmpe = strstr(cursor, "\t");
     if (tmpe == NULL) { return false; }
-    strlcpy(name, cursor, tmpe - cursor + 1);
+    size_t nameLen = static_cast<size_t>(tmpe - cursor);
+    size_t nameCopyLen = min(nameLen, nameSize - 1);
+    memcpy(name, cursor, nameCopyLen);
+    name[nameCopyLen] = '\0';
     if (strlen(name) == 0) { return false; }
     cursor = tmpe + 1;
     tmpe = strstr(cursor, "\t");
     if (tmpe == NULL) { return false; }
-    strlcpy(url, cursor, tmpe - cursor + 1);
+    size_t urlLen = static_cast<size_t>(tmpe - cursor);
+    size_t urlCopyLen = min(urlLen, urlSize - 1);
+    memcpy(url, cursor, urlCopyLen);
+    url[urlCopyLen] = '\0';
     if (strlen(url) == 0) { return false; }
     cursor = tmpe + 1;
     if (strlen(cursor) == 0) { return false; }
-    strlcpy(buf, cursor, 4);
+    strlcpy(buf, cursor, sizeof(buf));
     ovol = atoi(buf);
     return true;
 }
 
-bool Config::parseJSON(const char* line, char* name, char* url, int& ovol) {
+bool Config::parseJSON(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol) {
     char *      tmps, *tmpe;
     const char* cursor = line;
     char        port[8], host[246], file[254];
+    if (!line || !name || !url || nameSize == 0 || urlSize == 0) { return false; }
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(name, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t nameLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t nameCopyLen = min(nameLen, nameSize - 1);
+    memcpy(name, tmps + 3, nameCopyLen);
+    name[nameCopyLen] = '\0';
     if (strlen(name) == 0) { return false; }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(host, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t hostLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t hostCopyLen = min(hostLen, sizeof(host) - 1);
+    memcpy(host, tmps + 3, hostCopyLen);
+    host[hostCopyLen] = '\0';
     if (strlen(host) == 0) { return false; }
     if (strstr(host, "http://") == NULL && strstr(host, "https://") == NULL) {
         sprintf(file, "http://%s", host);
-        strlcpy(host, file, strlen(file) + 1);
+        strlcpy(host, file, sizeof(host));
     }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(file, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t fileLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t fileCopyLen = min(fileLen, sizeof(file) - 1);
+    memcpy(file, tmps + 3, fileCopyLen);
+    file[fileCopyLen] = '\0';
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(port, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t portLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t portCopyLen = min(portLen, sizeof(port) - 1);
+    memcpy(port, tmps + 3, portCopyLen);
+    port[portCopyLen] = '\0';
     int p = atoi(port);
     if (p > 0) {
-        sprintf(url, "%s:%d%s", host, p, file);
+        snprintf(url, urlSize, "%s:%d%s", host, p, file);
     } else {
-        sprintf(url, "%s%s", host, file);
+        snprintf(url, urlSize, "%s%s", host, file);
     }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\"}");
     if (tmpe == NULL) { return false; }
-    strlcpy(port, tmps + 3, tmpe - tmps - 3 + 1);
+    portLen = static_cast<size_t>(tmpe - (tmps + 3));
+    portCopyLen = min(portLen, sizeof(port) - 1);
+    memcpy(port, tmps + 3, portCopyLen);
+    port[portCopyLen] = '\0';
     ovol = atoi(port);
     return true;
 }
 
 bool Config::parseWsCommand(const char* line, char* cmd, char* val, uint8_t cSize) {
     char* tmpe;
+    if (!line || !cmd || !val || cSize == 0) { return false; }
     tmpe = strstr(line, "=");
     if (tmpe == NULL) { return false; }
     memset(cmd, 0, cSize);
-    strlcpy(cmd, line, tmpe - line + 1);
+    size_t cmdLen = static_cast<size_t>(tmpe - line);
+    size_t cmdCopyLen = min(cmdLen, static_cast<size_t>(cSize - 1));
+    memcpy(cmd, line, cmdCopyLen);
+    cmd[cmdCopyLen] = '\0';
     // if (strlen(tmpe + 1) == 0) return false;
     memset(val, 0, cSize);
-    strlcpy(val, tmpe + 1, strlen(line) - strlen(cmd) + 1);
+    strlcpy(val, tmpe + 1, cSize);
     return true;
 }
 
 bool Config::parseSsid(const char* line, char* ssid, char* pass) {
     char* tmpe;
+    if (!line || !ssid || !pass) { return false; }
     tmpe = strstr(line, "\t");
     if (tmpe == NULL) { return false; }
     uint16_t pos = tmpe - line;
     if (pos > 29 || strlen(line) > 71) { return false; }
     memset(ssid, 0, 30);
-    strlcpy(ssid, line, pos + 1);
+    size_t ssidCopyLen = min(static_cast<size_t>(pos), static_cast<size_t>(29));
+    memcpy(ssid, line, ssidCopyLen);
+    ssid[ssidCopyLen] = '\0';
     memset(pass, 0, 40);
-    strlcpy(pass, line + pos + 1, strlen(line) - pos);
+    strlcpy(pass, line + pos + 1, 40);
     return true;
 }
 
