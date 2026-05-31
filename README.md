@@ -121,7 +121,7 @@ A névnapok megjelenítése a WEB-es felületen kikapcsolható options/ SYSTEM->
 ### v0.0.10
 - A WEB UI-hoz hozzáadva az IR Recorder CSV export és import funkció
 - LittleFS-SPIFFS Partition Manager v0.4.0 program hozzáadva. (by Botfai Tibor)  
-   [Bővebben itt olvasható.](LittleFS_manager\Readme.md)
+   [Bővebben itt olvasható.](https://github.com/VaraiTamas/VTomRadio/blob/main/LittleFS_manager/Readme.md)
 - A kijelző óra fontjai bővültek az Android fonttal
 - Stabilítási javítások a WEB UI-ban
 ### v0.0.9
